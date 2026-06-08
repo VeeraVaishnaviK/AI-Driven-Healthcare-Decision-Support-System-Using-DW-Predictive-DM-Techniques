@@ -2,9 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, UserPlus, Phone, MapPin, Eye, Calendar, User } from 'lucide-react';
+import { Search, UserPlus, Phone, MapPin, Eye, Calendar, User, Edit2, Trash2 } from 'lucide-react';
 
-// Main component with Suspense wrapper to handle useSearchParams safely
 export default function PatientsPage() {
   return (
     <Suspense fallback={<div>Loading Patient Management...</div>}>
@@ -26,11 +25,16 @@ function PatientsPageContent() {
   // States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
+  
+  // Modal states
+  const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'ADD' | 'EDIT'>('ADD');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Form states
-  const [newPatient, setNewPatient] = useState({
+  const [formPatient, setFormPatient] = useState({
     patient_id: '',
     patient_name: '',
     age: '',
@@ -55,10 +59,11 @@ function PatientsPageContent() {
         setDoctors(json.doctors || []);
         setDiseases(json.diseases || []);
         
-        // Auto-select if search ID exists
+        // Refresh selected patient to display updated values
         const queryId = searchParams.get('id');
-        if (queryId && json.patients) {
-          const matched = json.patients.find((p: any) => p.patient_id === queryId);
+        const activeId = selectedPatient?.patient_id || queryId;
+        if (activeId && json.patients) {
+          const matched = json.patients.find((p: any) => p.patient_id === activeId);
           if (matched) {
             setSelectedPatient(matched);
           }
@@ -87,56 +92,174 @@ function PatientsPageContent() {
     setSelectedPatient(p);
   };
 
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      // Calculate a mock risk level based on inputs
-      const g = Number(newPatient.glucose || 0);
-      const bp = Number(newPatient.blood_pressure || 0);
-      const bmi = Number(newPatient.bmi || 0);
-      
-      let risk = 10;
-      let result = 'Low Risk / Normal';
-      
-      if (g >= 126 || bp >= 140) {
-        risk = 82;
-        result = 'High Risk Detected';
-      } else if (g >= 100 || bp >= 130) {
-        risk = 48;
-        result = 'Moderate Risk Detected';
-      }
+  // Open Add Patient Modal
+  const openAddModal = () => {
+    setModalMode('ADD');
+    setFormError(null);
+    setFormPatient({
+      patient_id: '',
+      patient_name: '',
+      age: '',
+      gender: 'Female',
+      address: '',
+      contact: '',
+      doctor_id: doctors[0]?.doctor_id || '',
+      disease_id: 'DIS005',
+      glucose: '100',
+      blood_pressure: '120',
+      insulin: '0',
+      bmi: '24.0'
+    });
+    setShowModal(true);
+  };
 
-      const res = await fetch('/api/patients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newPatient,
-          risk_score: risk,
-          prediction_result: result
-        })
+  // Open Edit Patient Modal
+  const openEditModal = () => {
+    if (!selectedPatient) return;
+    setModalMode('EDIT');
+    setFormError(null);
+
+    // Get latest visit vitals for selected patient
+    const pVisits = visits.filter(v => v.patient_id === selectedPatient.patient_id);
+    const latest = pVisits.length > 0 ? pVisits[pVisits.length - 1] : {
+      glucose: 100,
+      blood_pressure: 120,
+      insulin: 0,
+      bmi: 24.0,
+      doctor_id: doctors[0]?.doctor_id || '',
+      disease_id: 'DIS005'
+    };
+
+    setFormPatient({
+      patient_id: selectedPatient.patient_id,
+      patient_name: selectedPatient.patient_name,
+      age: selectedPatient.age.toString(),
+      gender: selectedPatient.gender,
+      address: selectedPatient.address,
+      contact: selectedPatient.contact,
+      doctor_id: latest.doctor_id,
+      disease_id: latest.disease_id,
+      glucose: latest.glucose.toString(),
+      blood_pressure: latest.blood_pressure.toString(),
+      insulin: latest.insulin.toString(),
+      bmi: latest.bmi.toString()
+    });
+    setShowModal(true);
+  };
+
+  // Handle Form submit (Add/Edit)
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    // Clinical Input Validations
+    const ageNum = Number(formPatient.age);
+    const gNum = Number(formPatient.glucose);
+    const bpNum = Number(formPatient.blood_pressure);
+    const bmiNum = Number(formPatient.bmi);
+    const insNum = Number(formPatient.insulin || 0);
+
+    if (isNaN(ageNum) || ageNum <= 0 || ageNum > 115) {
+      setFormError('Clinical Validation: Age must be a positive number under 115.');
+      return;
+    }
+    if (isNaN(gNum) || gNum < 30 || gNum > 500) {
+      setFormError('Clinical Validation: Glucose Level must be between 30 and 500 mg/dL.');
+      return;
+    }
+    if (isNaN(bpNum) || bpNum < 50 || bpNum > 260) {
+      setFormError('Clinical Validation: Systolic Blood Pressure must be between 50 and 260 mmHg.');
+      return;
+    }
+    if (isNaN(bmiNum) || bmiNum < 10 || bmiNum > 65) {
+      setFormError('Clinical Validation: BMI must be between 10.0 and 65.0 kg/m².');
+      return;
+    }
+    if (isNaN(insNum) || insNum < 0 || insNum > 1000) {
+      setFormError('Clinical Validation: Insulin Level must be a positive number under 1000 uIU/mL.');
+      return;
+    }
+
+    try {
+      if (modalMode === 'ADD') {
+        // Validate ID format (Pxxx)
+        if (!/^P\d+$/.test(formPatient.patient_id)) {
+          setFormError('Validation: Patient ID must start with P followed by digits (e.g., P007).');
+          return;
+        }
+
+        // Check for duplicates
+        const exists = patients.some(p => p.patient_id.toLowerCase() === formPatient.patient_id.toLowerCase());
+        if (exists) {
+          setFormError(`Validation: Patient ID ${formPatient.patient_id} already exists.`);
+          return;
+        }
+
+        // Calculate a mock risk level based on inputs
+        let risk = 10;
+        let result = 'Low Risk / Normal';
+        if (gNum >= 126 || bpNum >= 140) {
+          risk = 82;
+          result = 'High Risk Detected';
+        } else if (gNum >= 100 || bpNum >= 130) {
+          risk = 48;
+          result = 'Moderate Risk Detected';
+        }
+
+        const res = await fetch('/api/patients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...formPatient,
+            risk_score: risk,
+            prediction_result: result
+          })
+        });
+
+        if (res.ok) {
+          setShowModal(false);
+          loadData();
+        } else {
+          const err = await res.json();
+          setFormError(err.error || 'Server error inserting patient.');
+        }
+      } else {
+        // EDIT mode
+        const res = await fetch('/api/patients', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formPatient)
+        });
+
+        if (res.ok) {
+          setShowModal(false);
+          loadData();
+        } else {
+          const err = await res.json();
+          setFormError(err.error || 'Server error updating patient.');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to submit form:', err);
+      setFormError('Network error. Check server logs.');
+    }
+  };
+
+  // Delete Patient execution
+  const handleDeletePatient = async () => {
+    if (!selectedPatient) return;
+    try {
+      const res = await fetch(`/api/patients?id=${selectedPatient.patient_id}`, {
+        method: 'DELETE'
       });
 
       if (res.ok) {
-        setShowAddModal(false);
-        // Reset form
-        setNewPatient({
-          patient_id: '',
-          patient_name: '',
-          age: '',
-          gender: 'Female',
-          address: '',
-          contact: '',
-          doctor_id: '',
-          disease_id: 'DIS005',
-          glucose: '',
-          blood_pressure: '',
-          insulin: '',
-          bmi: ''
-        });
+        setShowDeleteModal(false);
+        setSelectedPatient(null);
         loadData();
       }
     } catch (err) {
-      console.error('Failed to add patient:', err);
+      console.error('Deletion failed:', err);
     }
   };
 
@@ -192,7 +315,7 @@ function PatientsPageContent() {
             />
           </div>
 
-          <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
+          <button onClick={openAddModal} className="btn btn-primary">
             <UserPlus size={18} /> Register New Patient
           </button>
         </div>
@@ -264,13 +387,32 @@ function PatientsPageContent() {
               <span className="badge badge-info">{selectedPatient.patient_id}</span>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '0.5rem' }}>{selectedPatient.patient_name}</h2>
             </div>
-            <button 
-              onClick={() => setSelectedPatient(null)} 
-              className="btn btn-secondary"
-              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-            >
-              Close
-            </button>
+            
+            <div style={{ display: 'flex', gap: '0.25rem' }}>
+              <button 
+                onClick={openEditModal} 
+                className="btn btn-secondary"
+                style={{ padding: '0.35rem', display: 'flex', alignItems: 'center' }}
+                title="Edit Patient"
+              >
+                <Edit2 size={14} />
+              </button>
+              <button 
+                onClick={() => setShowDeleteModal(true)} 
+                className="btn btn-secondary"
+                style={{ padding: '0.35rem', display: 'flex', alignItems: 'center', color: 'var(--color-danger)' }}
+                title="Delete Patient"
+              >
+                <Trash2 size={14} />
+              </button>
+              <button 
+                onClick={() => setSelectedPatient(null)} 
+                className="btn btn-secondary"
+                style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+              >
+                Close
+              </button>
+            </div>
           </div>
 
           {/* Demographics Card */}
@@ -343,22 +485,32 @@ function PatientsPageContent() {
         </div>
       )}
 
-      {/* Add Patient Modal */}
-      {showAddModal && (
+      {/* Add / Edit Patient Modal */}
+      {showModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem' }}>
           <div className="card animate-slide" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.25rem' }}>Register Patient & Seed Clinical Fact</h2>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.25rem' }}>
+              {modalMode === 'ADD' ? 'Register Patient & Seed Clinical Fact' : 'Update Demographics & Latest Vitals'}
+            </h2>
+
+            {formError && (
+              <div style={{ padding: '0.75rem 1rem', backgroundColor: 'var(--color-danger-light)', border: '1.5px solid var(--color-danger-border)', borderRadius: '8px', color: 'var(--color-danger)', fontSize: '0.8rem', fontWeight: 550, marginBottom: '1.25rem' }}>
+                {formError}
+              </div>
+            )}
             
-            <form onSubmit={handleAddSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Patient ID (Format: Pxxx)</label>
+                  <label className="form-label">Patient ID {modalMode === 'ADD' ? '(Format: Pxxx)' : '(ReadOnly)'}</label>
                   <input
                     type="text"
                     placeholder="P007"
-                    value={newPatient.patient_id}
-                    onChange={(e) => setNewPatient({ ...newPatient, patient_id: e.target.value })}
+                    value={formPatient.patient_id}
+                    onChange={(e) => setFormPatient({ ...formPatient, patient_id: e.target.value })}
                     className="form-input"
+                    disabled={modalMode === 'EDIT'}
+                    style={{ backgroundColor: modalMode === 'EDIT' ? '#e2e8f0' : 'inherit' }}
                     required
                   />
                 </div>
@@ -368,8 +520,8 @@ function PatientsPageContent() {
                   <input
                     type="text"
                     placeholder="Thomas Anderson"
-                    value={newPatient.patient_name}
-                    onChange={(e) => setNewPatient({ ...newPatient, patient_name: e.target.value })}
+                    value={formPatient.patient_name}
+                    onChange={(e) => setFormPatient({ ...formPatient, patient_name: e.target.value })}
                     className="form-input"
                     required
                   />
@@ -380,8 +532,8 @@ function PatientsPageContent() {
                   <input
                     type="number"
                     placeholder="34"
-                    value={newPatient.age}
-                    onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })}
+                    value={formPatient.age}
+                    onChange={(e) => setFormPatient({ ...formPatient, age: e.target.value })}
                     className="form-input"
                     required
                   />
@@ -390,8 +542,8 @@ function PatientsPageContent() {
                 <div className="form-group">
                   <label className="form-label">Gender</label>
                   <select
-                    value={newPatient.gender}
-                    onChange={(e) => setNewPatient({ ...newPatient, gender: e.target.value })}
+                    value={formPatient.gender}
+                    onChange={(e) => setFormPatient({ ...formPatient, gender: e.target.value })}
                     className="form-input"
                   >
                     <option value="Female">Female</option>
@@ -405,8 +557,8 @@ function PatientsPageContent() {
                   <input
                     type="text"
                     placeholder="206-555-0100"
-                    value={newPatient.contact}
-                    onChange={(e) => setNewPatient({ ...newPatient, contact: e.target.value })}
+                    value={formPatient.contact}
+                    onChange={(e) => setFormPatient({ ...formPatient, contact: e.target.value })}
                     className="form-input"
                   />
                 </div>
@@ -416,23 +568,27 @@ function PatientsPageContent() {
                   <input
                     type="text"
                     placeholder="101 Matrix Rd, Redmond, WA"
-                    value={newPatient.address}
-                    onChange={(e) => setNewPatient({ ...newPatient, address: e.target.value })}
+                    value={formPatient.address}
+                    onChange={(e) => setFormPatient({ ...formPatient, address: e.target.value })}
                     className="form-input"
                   />
                 </div>
               </div>
 
               <hr style={{ borderColor: 'var(--color-surface-border)' }} />
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-primary)' }}>Initialize DWH Clinical Visit Fact</h3>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-primary)' }}>
+                {modalMode === 'ADD' ? 'Initialize DWH Clinical Visit Fact' : 'Update Latest DWH Clinical Vitals'}
+              </h3>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Attending Doctor</label>
+                  <label className="form-label">Attending Doctor {modalMode === 'EDIT' && '(ReadOnly)'}</label>
                   <select
-                    value={newPatient.doctor_id}
-                    onChange={(e) => setNewPatient({ ...newPatient, doctor_id: e.target.value })}
+                    value={formPatient.doctor_id}
+                    onChange={(e) => setFormPatient({ ...formPatient, doctor_id: e.target.value })}
                     className="form-input"
+                    disabled={modalMode === 'EDIT'}
+                    style={{ backgroundColor: modalMode === 'EDIT' ? '#e2e8f0' : 'inherit' }}
                     required
                   >
                     <option value="">-- Select Doctor --</option>
@@ -443,11 +599,13 @@ function PatientsPageContent() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Primary Diagnosis Code</label>
+                  <label className="form-label">Primary Diagnosis Code {modalMode === 'EDIT' && '(ReadOnly)'}</label>
                   <select
-                    value={newPatient.disease_id}
-                    onChange={(e) => setNewPatient({ ...newPatient, disease_id: e.target.value })}
+                    value={formPatient.disease_id}
+                    onChange={(e) => setFormPatient({ ...formPatient, disease_id: e.target.value })}
                     className="form-input"
+                    disabled={modalMode === 'EDIT'}
+                    style={{ backgroundColor: modalMode === 'EDIT' ? '#e2e8f0' : 'inherit' }}
                     required
                   >
                     {diseases.map(d => (
@@ -461,8 +619,8 @@ function PatientsPageContent() {
                   <input
                     type="number"
                     placeholder="110"
-                    value={newPatient.glucose}
-                    onChange={(e) => setNewPatient({ ...newPatient, glucose: e.target.value })}
+                    value={formPatient.glucose}
+                    onChange={(e) => setFormPatient({ ...formPatient, glucose: e.target.value })}
                     className="form-input"
                     required
                   />
@@ -473,8 +631,8 @@ function PatientsPageContent() {
                   <input
                     type="number"
                     placeholder="120"
-                    value={newPatient.blood_pressure}
-                    onChange={(e) => setNewPatient({ ...newPatient, blood_pressure: e.target.value })}
+                    value={formPatient.blood_pressure}
+                    onChange={(e) => setFormPatient({ ...formPatient, blood_pressure: e.target.value })}
                     className="form-input"
                     required
                   />
@@ -485,8 +643,8 @@ function PatientsPageContent() {
                   <input
                     type="number"
                     placeholder="80"
-                    value={newPatient.insulin}
-                    onChange={(e) => setNewPatient({ ...newPatient, insulin: e.target.value })}
+                    value={formPatient.insulin}
+                    onChange={(e) => setFormPatient({ ...formPatient, insulin: e.target.value })}
                     className="form-input"
                   />
                 </div>
@@ -497,8 +655,8 @@ function PatientsPageContent() {
                     type="number"
                     step="0.1"
                     placeholder="24.5"
-                    value={newPatient.bmi}
-                    onChange={(e) => setNewPatient({ ...newPatient, bmi: e.target.value })}
+                    value={formPatient.bmi}
+                    onChange={(e) => setFormPatient({ ...formPatient, bmi: e.target.value })}
                     className="form-input"
                     required
                   />
@@ -506,14 +664,38 @@ function PatientsPageContent() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-secondary">
+                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  💾 Commit Transaction
+                  💾 {modalMode === 'ADD' ? 'Commit Transaction' : 'Save Changes'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Patient Confirmation Modal */}
+      {showDeleteModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem' }}>
+          <div className="card animate-slide" style={{ width: '100%', maxWidth: '440px', borderLeft: '4px solid var(--color-danger)' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-secondary)', marginBottom: '0.75rem' }}>⚠️ Delete Clinical Patient Record?</h2>
+            
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', lineHeight: 1.45, marginBottom: '1.5rem' }}>
+              Are you sure you want to permanently delete <strong>{selectedPatient?.patient_name}</strong> (ID: {selectedPatient?.patient_id})? 
+              <br /><br />
+              This is a <strong>cascade deletion</strong>. It will remove the patient dimension and permanently delete all clinical visit facts and prediction logs associated with this patient from the Star Schema data warehouse.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button onClick={() => setShowDeleteModal(false)} className="btn btn-secondary">
+                Cancel
+              </button>
+              <button onClick={handleDeletePatient} className="btn btn-danger">
+                🗑️ Cascade Delete Patient
+              </button>
+            </div>
           </div>
         </div>
       )}

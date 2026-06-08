@@ -198,6 +198,24 @@ export async function savePatient(patient: Patient): Promise<void> {
   writeJsonDb(db);
 }
 
+export async function deletePatient(patientId: string): Promise<void> {
+  const mysqlPool = getMySQLPool();
+  if (mysqlPool) {
+    try {
+      await mysqlPool.query('DELETE FROM dim_patient WHERE patient_id = ?', [patientId]);
+      return;
+    } catch (error) {
+      console.warn('MySQL deletePatient query failed, using JSON fallback:', error);
+    }
+  }
+
+  const db = readJsonDb();
+  db.dim_patient = (db.dim_patient || []).filter((p: Patient) => p.patient_id !== patientId);
+  db.fact_patient_visit = (db.fact_patient_visit || []).filter((v: PatientVisit) => v.patient_id !== patientId);
+  db.predictions = (db.predictions || []).filter((p: PredictionHistory) => p.patient_id !== patientId);
+  writeJsonDb(db);
+}
+
 export async function getDoctors(): Promise<Doctor[]> {
   const mysqlPool = getMySQLPool();
   if (mysqlPool) {
