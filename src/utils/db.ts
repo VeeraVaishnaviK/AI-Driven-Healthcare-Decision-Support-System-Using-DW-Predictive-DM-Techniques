@@ -69,12 +69,18 @@ export interface PredictionHistory {
   timestamp: string;
   model_used: string;
   inputs: {
+    pregnancies?: number;
     glucose: number;
     blood_pressure: number;
+    skin_thickness?: number;
     insulin: number;
     bmi: number;
+    diabetes_pedigree?: number;
+    age?: number;
   };
   risk_score: number;
+  confidence_score?: number;
+  recommendations?: string[];
   result: string;
 }
 

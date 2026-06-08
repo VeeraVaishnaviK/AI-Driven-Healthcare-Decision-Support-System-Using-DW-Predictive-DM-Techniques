@@ -487,7 +487,63 @@ export default function PredictionPage() {
                       )}{' '}
                       Clinical Care Path Recommendation:
                     </strong>
-                    {result.details}
+                    <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>{result.details}</p>
+
+                    {/* AI Recommendation Checklist */}
+                    {result.prediction.recommendations && result.prediction.recommendations.length > 0 && (
+                      <div style={{ 
+                        marginTop: '0.85rem', 
+                        borderTop: `1px solid ${
+                          result.prediction.risk_score >= 71 
+                            ? 'var(--color-danger-border)' 
+                            : result.prediction.risk_score >= 41 
+                              ? 'var(--color-warning-border)' 
+                              : 'var(--color-success-border)'
+                        }`, 
+                        paddingTop: '0.75rem' 
+                      }}>
+                        <span style={{ 
+                          fontWeight: 700, 
+                          display: 'block', 
+                          marginBottom: '0.4rem', 
+                          textTransform: 'uppercase', 
+                          fontSize: '0.68rem', 
+                          letterSpacing: '0.05em',
+                          color: 
+                            result.prediction.risk_score >= 71 
+                              ? 'var(--color-danger)' 
+                              : result.prediction.risk_score >= 41 
+                                ? 'var(--color-warning)' 
+                                : 'var(--color-success)'
+                        }}>
+                          AI Actionable Guidelines Checklist:
+                        </span>
+                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          {result.prediction.recommendations.map((rec: string, idx: number) => (
+                            <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                              <span style={{ 
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '14px',
+                                height: '14px',
+                                borderRadius: '50%',
+                                backgroundColor: 
+                                  result.prediction.risk_score >= 71 
+                                    ? 'var(--color-danger)' 
+                                    : result.prediction.risk_score >= 41 
+                                      ? 'var(--color-warning)' 
+                                      : 'var(--color-success)',
+                                color: '#ffffff',
+                                fontSize: '8px',
+                                fontWeight: 'bold'
+                              }}>✓</span>
+                              {rec}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (

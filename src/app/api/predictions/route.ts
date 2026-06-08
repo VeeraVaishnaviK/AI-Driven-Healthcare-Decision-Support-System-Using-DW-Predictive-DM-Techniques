@@ -193,6 +193,29 @@ export async function POST(request: Request) {
     }
 
     const predictionId = `PRED${Math.floor(1000 + Math.random() * 9000)}`;
+    
+    // Generate AI recommendations array based on risk score thresholds
+    let recommendations: string[] = [];
+    if (score >= 71) {
+      recommendations = [
+        'Consult doctor immediately.',
+        'Schedule blood test.',
+        'Monitor glucose level.',
+        'Improve diet.'
+      ];
+    } else if (score >= 41) {
+      recommendations = [
+        'Increase physical activity.',
+        'Monitor blood sugar.',
+        'Follow preventive care.'
+      ];
+    } else {
+      recommendations = [
+        'Maintain healthy lifestyle.',
+        'Routine checkups.'
+      ];
+    }
+
     const newPred = {
       prediction_id: predictionId,
       patient_id: patient_id || 'WALK_IN',
@@ -217,6 +240,7 @@ export async function POST(request: Request) {
       },
       risk_score: score,
       confidence_score: confidence,
+      recommendations,
       result: classification
     };
 
