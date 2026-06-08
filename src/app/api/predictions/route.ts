@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getPredictions, savePrediction, getPatients } from '@/utils/db';
+import { getPredictions, savePrediction, getPatients, getSettings } from '@/utils/db';
+import { 
+  RandomForestClassifier, 
+  LogisticRegressionClassifier, 
+  DecisionTreeClassifier 
+} from '@/utils/ml';
 
 export async function GET() {
   try {
@@ -19,13 +24,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required clinical indicators' }, { status: 400 });
     }
 
-    // Resolve patient name
+    // Resolve patient details
     let patientName = 'Unknown Patient';
+    let patientAge = 45; // default fallback
+    let patientObj: any = null;
+
     if (patient_id) {
       const patients = await getPatients();
-      const patient = patients.find(p => p.patient_id === patient_id);
-      if (patient) {
-        patientName = patient.patient_name;
+      patientObj = patients.find(p => p.patient_id === patient_id);
+      if (patientObj) {
+        patientName = patientObj.patient_name;
+        patientAge = patientObj.age;
       }
     }
 
@@ -34,74 +43,92 @@ export async function POST(request: Request) {
     const iVal = Number(insulin || 0);
     const bmiVal = Number(bmi);
 
-    // Dynamic predictive score modeling (heuristic-based)
-    let score = 10; // baseline
-    let details = 'Patient indicators reside within acceptable clinical ranges. Continue standard preventative screening.';
+    const settings = await getSettings();
+    let score = 15;
     let classification = 'Low Risk / Normal';
+    let details = 'Patient indicators reside within acceptable clinical ranges. Continue standard preventative screening.';
+    let isMlInference = false;
 
-    if (disease_type === 'diabetes') {
-      // Diabetes Risk Criteria (ADA Guidelines: Fasting Glucose > 100 is prediabetic, >125 diabetic)
-      if (gVal >= 126) {
-        score += 45;
-      } else if (gVal >= 100) {
-        score += 25;
-      }
+    // Check if there is a trained model and the disease target is diabetes
+    if (disease_type === 'diabetes' && settings.serialized_model_params && settings.serialized_model_type) {
+      try {
+        const featureVector = [gVal, bpVal, iVal, bmiVal, patientAge];
+        const mType = settings.serialized_model_type;
+        const mParams = settings.serialized_model_params;
 
-      if (bmiVal >= 30) {
-        score += 20;
-      } else if (bmiVal >= 25) {
-        score += 10;
-      }
+        if (mType === 'logistic_regression') {
+          const lr = new LogisticRegressionClassifier();
+          lr.fromJSON(mParams);
+          const prob = lr.predictProbability(featureVector);
+          score = Math.round(prob * 1000) / 10;
+          classification = score >= 50 ? 'High Diabetes Risk' : 'Low Diabetes Risk / Normal';
+          isMlInference = true;
+        } else if (mType === 'decision_tree') {
+          const dt = new DecisionTreeClassifier();
+          dt.fromJSON(mParams);
+          const pred = dt.predict([featureVector])[0];
+          score = pred === 1 ? 88.0 : 15.0;
+          classification = pred === 1 ? 'High Diabetes Risk' : 'Low Diabetes Risk / Normal';
+          isMlInference = true;
+        } else if (mType === 'random_forest') {
+          // Count tree votes to get probability score
+          const rf = new RandomForestClassifier();
+          rf.fromJSON(mParams);
+          
+          // Re-implement vote counting locally
+          const trees = (rf as any).trees || [];
+          let votesFor1 = 0;
+          trees.forEach((tree: any) => {
+            const pred = tree.predict([featureVector])[0];
+            if (pred === 1) votesFor1++;
+          });
 
-      if (iVal > 150) {
-        score += 15;
-      }
+          const prob = trees.length > 0 ? votesFor1 / trees.length : 0.5;
+          score = Math.round(prob * 1000) / 10;
+          classification = score >= 50 ? 'High Diabetes Risk' : 'Low Diabetes Risk / Normal';
+          isMlInference = true;
+        }
 
-      if (score >= 70) {
-        classification = 'High Diabetes Risk';
-        details = 'Warning: Elevated fasting glucose and BMI indicate strong likelihood of Type 2 Diabetes. Recommend ordering a confirmatory HbA1c test, initiating nutritional counseling, and monitoring glycemic response.';
-      } else if (score >= 40) {
-        classification = 'Moderate Risk (Prediabetic)';
-        details = 'Note: Borderline glucose levels and weight indicate mild insulin resistance. Recommend lifestyle intervention, carbohydrate-conscious diet, and repeating lab tests in 6 months.';
-      }
-    } else if (disease_type === 'hypertension') {
-      // Hypertension Criteria (AHA Guidelines: Systolic > 130 is Stage 1, >140 Stage 2)
-      if (bpVal >= 140) {
-        score += 50;
-      } else if (bpVal >= 130) {
-        score += 30;
-      }
-
-      if (bmiVal >= 30) {
-        score += 15;
-      }
-
-      if (score >= 65) {
-        classification = 'Stage 2 Hypertension Risk';
-        details = 'Warning: Blood pressure exceeds 140 mmHg. Strongly recommend initiating pharmacological evaluation (ACE inhibitors/ARBs), implementing low-sodium DASH diet, and tracking daily home blood pressure readings.';
-      } else if (score >= 35) {
-        classification = 'Stage 1 Hypertension Risk';
-        details = 'Note: Elevated blood pressure detected. Recommend structural diet modification, weight reduction strategies, and scheduling a follow-up assessment within 4 weeks.';
-      }
-    } else if (disease_type === 'cardiac') {
-      // Cardiovascular indicators based on BP, Glucose, BMI
-      if (bpVal >= 140) score += 25;
-      if (gVal >= 120) score += 20;
-      if (bmiVal >= 30) score += 20;
-      if (bmiVal >= 25) score += 10;
-
-      if (score >= 60) {
-        classification = 'High Cardiovascular Risk';
-        details = 'Warning: Co-occurrence of metabolic risk factors (hypertension and obesity) heightens arterial cardiovascular risk. Recommend scheduling a stress test, lipid panel screening, and evaluating lipid-lowering therapies (statins).';
-      } else if (score >= 30) {
-        classification = 'Moderate Cardiovascular Risk';
-        details = 'Note: Combined indicators suggest mild arterial stress. Recommend active cardiovascular exercise program (150 mins/week) and optimization of diet.';
+        if (classification.startsWith('High')) {
+          details = `🤖 Decision Support System (ML Inferred via ${settings.active_champion.model_name}): Warning! Machine Learning algorithms detect a ${score}% risk of Type 2 Diabetes. Recommend ordering a confirmatory HbA1c test and initiating glycemic tracking.`;
+        } else {
+          details = `🤖 Decision Support System (ML Inferred via ${settings.active_champion.model_name}): Patient is classified as Low Risk (${score}% probability). Continue standard annual metabolic monitoring.`;
+        }
+      } catch (err) {
+        console.error('ML inference failed, falling back to heuristic:', err);
       }
     }
 
-    // Ensure score is capped at 99.9%
-    score = Math.min(score, 98.8);
-    score = Math.round(score * 10) / 10;
+    // Heuristics Fallback (or default for other diseases like heart/cardiac)
+    if (!isMlInference) {
+      if (disease_type === 'diabetes') {
+        if (gVal >= 126) score += 45;
+        else if (gVal >= 100) score += 25;
+        if (bmiVal >= 30) score += 20;
+        if (bpVal >= 140) score += 15;
+        if (score >= 65) {
+          classification = 'High Diabetes Risk';
+          details = 'Warning: Elevated fasting glucose and BMI indicate likelihood of Type 2 Diabetes. Recommend HbA1c screening.';
+        }
+      } else if (disease_type === 'hypertension') {
+        if (bpVal >= 140) score += 50;
+        else if (bpVal >= 130) score += 30;
+        if (bmiVal >= 30) score += 15;
+        if (score >= 65) {
+          classification = 'Stage 2 Hypertension Risk';
+          details = 'Warning: Blood pressure exceeds 140 mmHg. Recommend pharmacological evaluation (ACE inhibitors/ARBs) and low-sodium DASH diet.';
+        }
+      } else if (disease_type === 'cardiac') {
+        if (bpVal >= 140) score += 25;
+        if (gVal >= 120) score += 20;
+        if (bmiVal >= 30) score += 20;
+        if (score >= 60) {
+          classification = 'High Cardiovascular Risk';
+          details = 'Warning: Metabolic markers indicate elevated arterial stress. Recommend stress test and lipid panels.';
+        }
+      }
+      score = Math.min(score, 99.0);
+    }
 
     const predictionId = `PRED${Math.floor(1000 + Math.random() * 9000)}`;
     const newPred = {
@@ -109,11 +136,13 @@ export async function POST(request: Request) {
       patient_id: patient_id || 'WALK_IN',
       patient_name: patientName,
       timestamp: new Date().toISOString(),
-      model_used: disease_type === 'diabetes' 
-        ? 'Diabetes Risk Classifier v1.2' 
-        : disease_type === 'hypertension' 
-          ? 'Hypertension Classifier v1.1' 
-          : 'Cardiovascular Risk Model v2.0',
+      model_used: isMlInference 
+        ? `Trained ${settings.active_champion.model_name}`
+        : disease_type === 'diabetes' 
+          ? 'Diabetes Risk Classifier v1.2' 
+          : disease_type === 'hypertension' 
+            ? 'Hypertension Classifier v1.1' 
+            : 'Cardiovascular Risk Model v2.0',
       inputs: {
         glucose: gVal,
         blood_pressure: bpVal,
