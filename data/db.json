@@ -1,0 +1,299 @@
+{
+  "users": [
+    {
+      "email": "admin@healthcare.com",
+      "password": "admin123",
+      "name": "Dr. Vaishnav"
+    }
+  ],
+  "dim_patient": [
+    {
+      "patient_id": "P001",
+      "patient_name": "Sarah Jenkins",
+      "age": 45,
+      "gender": "Female",
+      "address": "123 Pine St, Seattle, WA",
+      "contact": "206-555-0143"
+    },
+    {
+      "patient_id": "P002",
+      "patient_name": "David Chen",
+      "age": 62,
+      "gender": "Male",
+      "address": "456 Oak Ave, Bellevue, WA",
+      "contact": "425-555-0188"
+    },
+    {
+      "patient_id": "P003",
+      "patient_name": "Elena Rodriguez",
+      "age": 29,
+      "gender": "Female",
+      "address": "789 Maple Rd, Tacoma, WA",
+      "contact": "253-555-0121"
+    },
+    {
+      "patient_id": "P004",
+      "patient_name": "James Wilson",
+      "age": 71,
+      "gender": "Male",
+      "address": "321 Elm Dr, Redmond, WA",
+      "contact": "425-555-0155"
+    },
+    {
+      "patient_id": "P005",
+      "patient_name": "Amina Yusuf",
+      "age": 38,
+      "gender": "Female",
+      "address": "654 Birch Ln, Kent, WA",
+      "contact": "206-555-0199"
+    },
+    {
+      "patient_id": "P006",
+      "patient_name": "Robert Miller",
+      "age": 54,
+      "gender": "Male",
+      "address": "987 Cedar Way, Everett, WA",
+      "contact": "425-555-0137"
+    }
+  ],
+  "dim_doctor": [
+    {
+      "doctor_id": "D001",
+      "doctor_name": "Dr. Allison Vance",
+      "specialization": "Endocrinology"
+    },
+    {
+      "doctor_id": "D002",
+      "doctor_name": "Dr. Marcus Brody",
+      "specialization": "Cardiology"
+    },
+    {
+      "doctor_id": "D003",
+      "doctor_name": "Dr. Evelyn Foster",
+      "specialization": "General Medicine"
+    },
+    {
+      "doctor_id": "D004",
+      "doctor_name": "Dr. Sanjay Patel",
+      "specialization": "Nephrology"
+    }
+  ],
+  "dim_disease": [
+    {
+      "disease_id": "DIS001",
+      "disease_name": "Diabetes Mellitus"
+    },
+    {
+      "disease_id": "DIS002",
+      "disease_name": "Hypertension"
+    },
+    {
+      "disease_id": "DIS003",
+      "disease_name": "Coronary Artery Disease"
+    },
+    {
+      "disease_id": "DIS004",
+      "disease_name": "Chronic Kidney Disease"
+    },
+    {
+      "disease_id": "DIS005",
+      "disease_name": "General Screening / Healthy"
+    }
+  ],
+  "dim_time": [
+    {
+      "time_id": "T20260601",
+      "day": 1,
+      "month": 6,
+      "year": 2026
+    },
+    {
+      "time_id": "T20260602",
+      "day": 2,
+      "month": 6,
+      "year": 2026
+    },
+    {
+      "time_id": "T20260603",
+      "day": 3,
+      "month": 6,
+      "year": 2026
+    },
+    {
+      "time_id": "T20260604",
+      "day": 4,
+      "month": 6,
+      "year": 2026
+    },
+    {
+      "time_id": "T20260605",
+      "day": 5,
+      "month": 6,
+      "year": 2026
+    },
+    {
+      "time_id": "T20260606",
+      "day": 6,
+      "month": 6,
+      "year": 2026
+    },
+    {
+      "time_id": "T20260607",
+      "day": 7,
+      "month": 6,
+      "year": 2026
+    },
+    {
+      "time_id": "T20260608",
+      "day": 8,
+      "month": 6,
+      "year": 2026
+    }
+  ],
+  "fact_patient_visit": [
+    {
+      "visit_id": "V001",
+      "patient_id": "P001",
+      "doctor_id": "D001",
+      "disease_id": "DIS001",
+      "time_id": "T20260601",
+      "glucose": 148.0,
+      "blood_pressure": 130,
+      "insulin": 80.0,
+      "bmi": 33.6,
+      "prediction_result": "Diabetic Risk Detected",
+      "risk_score": 82.5
+    },
+    {
+      "visit_id": "V002",
+      "patient_id": "P002",
+      "doctor_id": "D002",
+      "disease_id": "DIS002",
+      "time_id": "T20260602",
+      "glucose": 110.0,
+      "blood_pressure": 145,
+      "insulin": 0.0,
+      "bmi": 28.2,
+      "prediction_result": "Hypertension Risk Detected",
+      "risk_score": 74.0
+    },
+    {
+      "visit_id": "V003",
+      "patient_id": "P003",
+      "doctor_id": "D003",
+      "disease_id": "DIS005",
+      "time_id": "T20260603",
+      "glucose": 85.0,
+      "blood_pressure": 115,
+      "insulin": 0.0,
+      "bmi": 22.4,
+      "prediction_result": "Low Risk / Normal",
+      "risk_score": 12.5
+    },
+    {
+      "visit_id": "V004",
+      "patient_id": "P004",
+      "doctor_id": "D004",
+      "disease_id": "DIS004",
+      "time_id": "T20260604",
+      "glucose": 130.0,
+      "blood_pressure": 138,
+      "insulin": 95.0,
+      "bmi": 29.8,
+      "prediction_result": "Kidney Stress Detected",
+      "risk_score": 68.0
+    },
+    {
+      "visit_id": "V005",
+      "patient_id": "P005",
+      "doctor_id": "D001",
+      "disease_id": "DIS005",
+      "time_id": "T20260605",
+      "glucose": 99.0,
+      "blood_pressure": 120,
+      "insulin": 0.0,
+      "bmi": 24.1,
+      "prediction_result": "Low Risk / Normal",
+      "risk_score": 18.0
+    },
+    {
+      "visit_id": "V006",
+      "patient_id": "P006",
+      "doctor_id": "D002",
+      "disease_id": "DIS003",
+      "time_id": "T20260606",
+      "glucose": 155.0,
+      "blood_pressure": 160,
+      "insulin": 110.0,
+      "bmi": 31.2,
+      "prediction_result": "High Cardiac Risk",
+      "risk_score": 89.2
+    }
+  ],
+  "etl_logs": [
+    {
+      "log_id": "L001",
+      "timestamp": "2026-06-08T09:30:00.000Z",
+      "pipeline_name": "EHR Sync Pipeline",
+      "status": "COMPLETED",
+      "records_extracted": 120,
+      "records_transformed": 120,
+      "records_loaded": 120,
+      "duration_ms": 1420,
+      "details": "Successfully extracted patient data from EMR systems, mapped ICD-10 codes, and loaded into Star Schema."
+    },
+    {
+      "log_id": "L002",
+      "timestamp": "2026-06-07T09:30:00.000Z",
+      "pipeline_name": "EHR Sync Pipeline",
+      "status": "COMPLETED",
+      "records_extracted": 95,
+      "records_transformed": 95,
+      "records_loaded": 95,
+      "duration_ms": 1150,
+      "details": "Daily schedule run completed. No data validation issues found."
+    }
+  ],
+  "predictions": [
+    {
+      "prediction_id": "PRED001",
+      "patient_id": "P001",
+      "patient_name": "Sarah Jenkins",
+      "timestamp": "2026-06-08T10:00:00.000Z",
+      "model_used": "Diabetes Risk Classifier v1.2",
+      "inputs": {
+        "glucose": 148,
+        "blood_pressure": 130,
+        "insulin": 80,
+        "bmi": 33.6
+      },
+      "risk_score": 82.5,
+      "result": "High Risk / Diabetic Risk Detected"
+    },
+    {
+      "prediction_id": "PRED002",
+      "patient_id": "P002",
+      "patient_name": "David Chen",
+      "timestamp": "2026-06-08T10:05:00.000Z",
+      "model_used": "Cardiovascular Classifier v2.0",
+      "inputs": {
+        "glucose": 110,
+        "blood_pressure": 145,
+        "insulin": 0,
+        "bmi": 28.2
+      },
+      "risk_score": 74.0,
+      "result": "Moderate Risk / Hypertension Risk"
+    }
+  ],
+  "settings": {
+    "emr_endpoint": "https://api.healthcare-network.local/v1",
+    "sync_frequency": "daily",
+    "alert_threshold": 75,
+    "email_alerts": true,
+    "selected_model": "RandomForest v1.0",
+    "dwh_mysql_host": "localhost",
+    "dwh_mysql_user": "root",
+    "dwh_mysql_db": "healthcare_dwh"
+  }
+}

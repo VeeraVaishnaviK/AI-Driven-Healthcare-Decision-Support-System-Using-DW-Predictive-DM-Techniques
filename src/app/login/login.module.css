@@ -1,0 +1,94 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 10% 20%, rgba(15, 118, 110, 0.08) 0%, rgba(15, 23, 42, 0.02) 90%), #f1f5f9;
+  padding: 1.5rem;
+}
+
+.loginCard {
+  width: 100%;
+  max-width: 440px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-surface-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logoIcon {
+  color: var(--color-primary);
+  background-color: var(--color-primary-light);
+  padding: 0.75rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-primary-border);
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-secondary);
+  line-height: 1.3;
+}
+
+.subtitle {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.errorBox {
+  padding: 0.75rem 1rem;
+  background-color: var(--color-danger-light);
+  border: 1.5px solid var(--color-danger-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-danger);
+  font-size: 0.8rem;
+  font-weight: 550;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.demoBanner {
+  background-color: var(--color-info-light);
+  border: 1.5px solid var(--color-info-border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  line-height: 1.4;
+}
+
+.demoTitle {
+  font-weight: 600;
+  color: #2563eb;
+  font-size: 0.85rem;
+}
+
+.submitBtn {
+  margin-top: 0.5rem;
+  width: 100%;
+}
