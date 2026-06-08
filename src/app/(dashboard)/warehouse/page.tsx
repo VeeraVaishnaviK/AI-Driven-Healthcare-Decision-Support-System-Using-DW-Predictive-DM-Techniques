@@ -60,10 +60,13 @@ export default function WarehousePage() {
                 <th>Doctor ID</th>
                 <th>Disease ID</th>
                 <th>Time ID</th>
+                <th>Preg</th>
                 <th>Glucose</th>
-                <th>Blood Pressure</th>
+                <th>BP</th>
+                <th>Skin</th>
                 <th>Insulin</th>
                 <th>BMI</th>
+                <th>Pedigree</th>
                 <th>Result</th>
                 <th>Risk Score</th>
               </tr>
@@ -76,14 +79,17 @@ export default function WarehousePage() {
                   <td>{v.doctor_id}</td>
                   <td>{v.disease_id}</td>
                   <td>{v.time_id}</td>
+                  <td>{v.pregnancies ?? 0}</td>
                   <td>{v.glucose} mg/dL</td>
                   <td>{v.blood_pressure} mmHg</td>
+                  <td>{v.skin_thickness ?? 0} mm</td>
                   <td>{v.insulin} uIU/mL</td>
                   <td>{v.bmi} kg/m²</td>
+                  <td>{v.diabetes_pedigree ?? 0.35}</td>
                   <td>
                     <span className={`badge ${
-                      v.risk_score >= 75 ? 'badge-danger' : 
-                      v.risk_score >= 40 ? 'badge-warning' : 'badge-success'
+                      v.risk_score >= 71 ? 'badge-danger' : 
+                      v.risk_score >= 41 ? 'badge-warning' : 'badge-success'
                     }`}>
                       {v.prediction_result}
                     </span>

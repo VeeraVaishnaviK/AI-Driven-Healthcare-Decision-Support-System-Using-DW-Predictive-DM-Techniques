@@ -39,10 +39,13 @@ export interface PatientVisit {
   doctor_id: string;
   disease_id: string;
   time_id: string;
+  pregnancies?: number;
   glucose: number;
   blood_pressure: number;
+  skin_thickness?: number;
   insulin: number;
   bmi: number;
+  diabetes_pedigree?: number;
   prediction_result: string;
   risk_score: number;
 }
@@ -339,13 +342,18 @@ export async function saveVisit(visit: PatientVisit): Promise<void> {
   if (mysqlPool) {
     try {
       await mysqlPool.query(
-        `INSERT INTO fact_patient_visit (visit_id, patient_id, doctor_id, disease_id, time_id, glucose, blood_pressure, insulin, bmi, prediction_result, risk_score)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO fact_patient_visit (visit_id, patient_id, doctor_id, disease_id, time_id, pregnancies, glucose, blood_pressure, skin_thickness, insulin, bmi, diabetes_pedigree, prediction_result, risk_score)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE 
          patient_id = VALUES(patient_id), doctor_id = VALUES(doctor_id), disease_id = VALUES(disease_id), time_id = VALUES(time_id),
-         glucose = VALUES(glucose), blood_pressure = VALUES(blood_pressure), insulin = VALUES(insulin), bmi = VALUES(bmi),
-         prediction_result = VALUES(prediction_result), risk_score = VALUES(risk_score)`,
-        [visit.visit_id, visit.patient_id, visit.doctor_id, visit.disease_id, visit.time_id, visit.glucose, visit.blood_pressure, visit.insulin, visit.bmi, visit.prediction_result, visit.risk_score]
+         pregnancies = VALUES(pregnancies), glucose = VALUES(glucose), blood_pressure = VALUES(blood_pressure), 
+         skin_thickness = VALUES(skin_thickness), insulin = VALUES(insulin), bmi = VALUES(bmi),
+         diabetes_pedigree = VALUES(diabetes_pedigree), prediction_result = VALUES(prediction_result), risk_score = VALUES(risk_score)`,
+        [
+          visit.visit_id, visit.patient_id, visit.doctor_id, visit.disease_id, visit.time_id, 
+          visit.pregnancies || 0, visit.glucose, visit.blood_pressure, visit.skin_thickness || 0, 
+          visit.insulin, visit.bmi, visit.diabetes_pedigree || 0, visit.prediction_result, visit.risk_score
+        ]
       );
       return;
     } catch (error) {

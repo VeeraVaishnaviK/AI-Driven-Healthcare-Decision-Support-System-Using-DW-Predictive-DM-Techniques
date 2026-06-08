@@ -157,10 +157,13 @@
       "doctor_id": "D001",
       "disease_id": "DIS001",
       "time_id": "T20260601",
+      "pregnancies": 6,
       "glucose": 148.0,
-      "blood_pressure": 130,
+      "blood_pressure": 72,
+      "skin_thickness": 35.0,
       "insulin": 80.0,
       "bmi": 33.6,
+      "diabetes_pedigree": 0.627,
       "prediction_result": "Diabetic Risk Detected",
       "risk_score": 82.5
     },
@@ -170,10 +173,13 @@
       "doctor_id": "D002",
       "disease_id": "DIS002",
       "time_id": "T20260602",
+      "pregnancies": 0,
       "glucose": 110.0,
       "blood_pressure": 145,
+      "skin_thickness": 0.0,
       "insulin": 0.0,
       "bmi": 28.2,
+      "diabetes_pedigree": 0.158,
       "prediction_result": "Hypertension Risk Detected",
       "risk_score": 74.0
     },
@@ -183,10 +189,13 @@
       "doctor_id": "D003",
       "disease_id": "DIS005",
       "time_id": "T20260603",
+      "pregnancies": 1,
       "glucose": 85.0,
-      "blood_pressure": 115,
+      "blood_pressure": 66,
+      "skin_thickness": 29.0,
       "insulin": 0.0,
       "bmi": 22.4,
+      "diabetes_pedigree": 0.351,
       "prediction_result": "Low Risk / Normal",
       "risk_score": 12.5
     },
@@ -196,10 +205,13 @@
       "doctor_id": "D004",
       "disease_id": "DIS004",
       "time_id": "T20260604",
+      "pregnancies": 0,
       "glucose": 130.0,
       "blood_pressure": 138,
+      "skin_thickness": 0.0,
       "insulin": 95.0,
       "bmi": 29.8,
+      "diabetes_pedigree": 0.230,
       "prediction_result": "Kidney Stress Detected",
       "risk_score": 68.0
     },
@@ -209,10 +221,13 @@
       "doctor_id": "D001",
       "disease_id": "DIS005",
       "time_id": "T20260605",
+      "pregnancies": 3,
       "glucose": 99.0,
-      "blood_pressure": 120,
+      "blood_pressure": 74,
+      "skin_thickness": 32.0,
       "insulin": 0.0,
       "bmi": 24.1,
+      "diabetes_pedigree": 0.248,
       "prediction_result": "Low Risk / Normal",
       "risk_score": 18.0
     },
@@ -222,10 +237,13 @@
       "doctor_id": "D002",
       "disease_id": "DIS003",
       "time_id": "T20260606",
+      "pregnancies": 0,
       "glucose": 155.0,
       "blood_pressure": 160,
+      "skin_thickness": 0.0,
       "insulin": 110.0,
       "bmi": 31.2,
+      "diabetes_pedigree": 0.380,
       "prediction_result": "High Cardiac Risk",
       "risk_score": 89.2
     }
@@ -254,38 +272,7 @@
       "details": "Daily schedule run completed. No data validation issues found."
     }
   ],
-  "predictions": [
-    {
-      "prediction_id": "PRED001",
-      "patient_id": "P001",
-      "patient_name": "Sarah Jenkins",
-      "timestamp": "2026-06-08T10:00:00.000Z",
-      "model_used": "Diabetes Risk Classifier v1.2",
-      "inputs": {
-        "glucose": 148,
-        "blood_pressure": 130,
-        "insulin": 80,
-        "bmi": 33.6
-      },
-      "risk_score": 82.5,
-      "result": "High Risk / Diabetic Risk Detected"
-    },
-    {
-      "prediction_id": "PRED002",
-      "patient_id": "P002",
-      "patient_name": "David Chen",
-      "timestamp": "2026-06-08T10:05:00.000Z",
-      "model_used": "Cardiovascular Classifier v2.0",
-      "inputs": {
-        "glucose": 110,
-        "blood_pressure": 145,
-        "insulin": 0,
-        "bmi": 28.2
-      },
-      "risk_score": 74.0,
-      "result": "Moderate Risk / Hypertension Risk"
-    }
-  ],
+  "predictions": [],
   "settings": {
     "emr_endpoint": "https://api.healthcare-network.local/v1",
     "sync_frequency": "daily",

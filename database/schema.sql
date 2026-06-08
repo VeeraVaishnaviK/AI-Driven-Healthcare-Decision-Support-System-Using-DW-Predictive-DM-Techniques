@@ -1,5 +1,5 @@
 -- AI-Driven Healthcare Decision Support System
--- Data Warehouse Star Schema Definition (MySQL)
+-- Data Warehouse Star Schema Definition (MySQL) - 8 Feature compliant
 
 CREATE DATABASE IF NOT EXISTS healthcare_dwh;
 USE healthcare_dwh;
@@ -49,10 +49,13 @@ CREATE TABLE fact_patient_visit (
     doctor_id VARCHAR(50) NOT NULL,
     disease_id VARCHAR(50) NOT NULL,
     time_id VARCHAR(50) NOT NULL,
+    pregnancies INT DEFAULT 0,
     glucose DOUBLE,
     blood_pressure INT,
+    skin_thickness DOUBLE DEFAULT 0,
     insulin DOUBLE,
     bmi DOUBLE,
+    diabetes_pedigree DOUBLE DEFAULT 0,
     prediction_result VARCHAR(50),
     risk_score DOUBLE,
     FOREIGN KEY (patient_id) REFERENCES dim_patient(patient_id) ON DELETE CASCADE,
@@ -100,10 +103,10 @@ INSERT INTO dim_time (time_id, day, month, year) VALUES
 ('T20260608', 8, 6, 2026);
 
 -- Insert Sample Fact Data
-INSERT INTO fact_patient_visit (visit_id, patient_id, doctor_id, disease_id, time_id, glucose, blood_pressure, insulin, bmi, prediction_result, risk_score) VALUES
-('V001', 'P001', 'D001', 'DIS001', 'T20260601', 148.0, 130, 80.0, 33.6, 'Diabetic Risk Detected', 82.5),
-('V002', 'P002', 'D002', 'DIS002', 'T20260602', 110.0, 145, 0.0, 28.2, 'Hypertension Risk Detected', 74.0),
-('V003', 'P003', 'D003', 'DIS005', 'T20260603', 85.0, 115, 0.0, 22.4, 'Low Risk / Normal', 12.5),
-('V004', 'P004', 'D004', 'DIS004', 'T20260604', 130.0, 138, 95.0, 29.8, 'Kidney Stress Detected', 68.0),
-('V005', 'P005', 'D001', 'DIS005', 'T20260605', 99.0, 120, 0.0, 24.1, 'Low Risk / Normal', 18.0),
-('V006', 'P006', 'D002', 'DIS003', 'T20260606', 155.0, 160, 110.0, 31.2, 'High Cardiac Risk', 89.2);
+INSERT INTO fact_patient_visit (visit_id, patient_id, doctor_id, disease_id, time_id, pregnancies, glucose, blood_pressure, skin_thickness, insulin, bmi, diabetes_pedigree, prediction_result, risk_score) VALUES
+('V001', 'P001', 'D001', 'DIS001', 'T20260601', 6, 148.0, 72, 35.0, 80.0, 33.6, 0.627, 'Diabetic Risk Detected', 82.5),
+('V002', 'P002', 'D002', 'DIS002', 'T20260602', 0, 110.0, 145, 0.0, 0.0, 28.2, 0.158, 'Hypertension Risk Detected', 74.0),
+('V003', 'P003', 'D003', 'DIS005', 'T20260603', 1, 85.0, 115, 29.0, 0.0, 22.4, 0.351, 'Low Risk / Normal', 12.5),
+('V004', 'P004', 'D004', 'DIS004', 'T20260604', 0, 130.0, 138, 0.0, 95.0, 29.8, 0.230, 'Kidney Stress Detected', 68.0),
+('V005', 'P005', 'D001', 'DIS005', 'T20260605', 3, 99.0, 120, 32.0, 0.0, 24.1, 0.248, 'Low Risk / Normal', 18.0),
+('V006', 'P006', 'D002', 'DIS003', 'T20260606', 0, 155.0, 160, 0.0, 110.0, 31.2, 0.380, 'High Cardiac Risk', 89.2);

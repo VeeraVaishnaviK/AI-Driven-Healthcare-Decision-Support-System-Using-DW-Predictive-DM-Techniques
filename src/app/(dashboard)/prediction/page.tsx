@@ -14,10 +14,14 @@ export default function PredictionPage() {
   // Screening Form states
   const [patientId, setPatientId] = useState('');
   const [diseaseType, setDiseaseType] = useState('diabetes');
+  const [pregnancies, setPregnancies] = useState('0');
   const [glucose, setGlucose] = useState('110');
   const [bp, setBp] = useState('120');
+  const [skinThickness, setSkinThickness] = useState('20');
   const [insulin, setInsulin] = useState('0');
   const [bmi, setBmi] = useState('24.5');
+  const [diabetesPedigree, setDiabetesPedigree] = useState('0.372');
+  const [age, setAge] = useState('30');
   
   // Results states
   const [loading, setLoading] = useState(false);
@@ -66,7 +70,15 @@ export default function PredictionPage() {
 
   const handlePatientChange = (pId: string) => {
     setPatientId(pId);
-    if (!pId) return;
+    if (!pId) {
+      setAge('30');
+      return;
+    }
+
+    const selectedPat = patients.find(p => p.patient_id === pId);
+    if (selectedPat) {
+      setAge(selectedPat.age.toString());
+    }
     
     // Auto-fill form values from the last visit of this patient
     fetch('/api/patients')
@@ -77,10 +89,13 @@ export default function PredictionPage() {
         if (pVisits.length > 0) {
           // Find latest visit
           const latest = pVisits[pVisits.length - 1];
-          setGlucose(latest.glucose.toString());
-          setBp(latest.blood_pressure.toString());
-          setInsulin(latest.insulin.toString());
-          setBmi(latest.bmi.toString());
+          setGlucose((latest.glucose ?? 110).toString());
+          setBp((latest.blood_pressure ?? 120).toString());
+          setInsulin((latest.insulin ?? 0).toString());
+          setBmi((latest.bmi ?? 24.5).toString());
+          setPregnancies((latest.pregnancies ?? 0).toString());
+          setSkinThickness((latest.skin_thickness ?? 20).toString());
+          setDiabetesPedigree((latest.diabetes_pedigree ?? 0.372).toString());
         }
       });
   };
@@ -96,10 +111,14 @@ export default function PredictionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patient_id: patientId,
+          pregnancies,
           glucose,
           blood_pressure: bp,
+          skin_thickness: skinThickness,
           insulin,
           bmi,
+          diabetes_pedigree: diabetesPedigree,
+          age,
           disease_type: diseaseType
         })
       });
@@ -123,7 +142,7 @@ export default function PredictionPage() {
     setTrainingLogs([
       '[TRAIN] Initializing predictive data mining pipeline...',
       '[TRAIN] Querying patients and clinical visit records from Data Warehouse...',
-      '[TRAIN] Parsing Star Schema joins... Vectorizing features: [glucose, blood_pressure, insulin, bmi, age]',
+      '[TRAIN] Parsing Star Schema joins... Vectorizing features: [pregnancies, glucose, blood_pressure, skin_thickness, insulin, bmi, diabetes_pedigree, age]',
       '[TRAIN] Partitioning dataset: 80% Training cohort, 20% validation Test cohort.'
     ]);
 
@@ -248,6 +267,29 @@ export default function PredictionPage() {
                   </div>
 
                   <div className="form-group">
+                    <label className="form-label">Age (years)</label>
+                    <input 
+                      type="number" 
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      className="form-input"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ opacity: diseaseType === 'diabetes' ? 1 : 0.5 }}>
+                    <label className="form-label">Pregnancies</label>
+                    <input 
+                      type="number" 
+                      value={pregnancies}
+                      onChange={(e) => setPregnancies(e.target.value)}
+                      className="form-input"
+                      disabled={diseaseType !== 'diabetes'}
+                      required={diseaseType === 'diabetes'}
+                    />
+                  </div>
+
+                  <div className="form-group">
                     <label className="form-label">Glucose Level (mg/dL)</label>
                     <input 
                       type="number" 
@@ -269,13 +311,25 @@ export default function PredictionPage() {
                     />
                   </div>
 
-                  <div className="form-group">
+                  <div className="form-group" style={{ opacity: diseaseType === 'diabetes' ? 1 : 0.5 }}>
+                    <label className="form-label">Skin Thickness (mm)</label>
+                    <input 
+                      type="number" 
+                      value={skinThickness}
+                      onChange={(e) => setSkinThickness(e.target.value)}
+                      className="form-input"
+                      disabled={diseaseType !== 'diabetes'}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ opacity: diseaseType === 'diabetes' ? 1 : 0.5 }}>
                     <label className="form-label">Insulin level (uIU/mL)</label>
                     <input 
                       type="number" 
                       value={insulin}
                       onChange={(e) => setInsulin(e.target.value)}
                       className="form-input"
+                      disabled={diseaseType !== 'diabetes'}
                     />
                   </div>
 
@@ -288,6 +342,18 @@ export default function PredictionPage() {
                       onChange={(e) => setBmi(e.target.value)}
                       className="form-input"
                       required
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ opacity: diseaseType === 'diabetes' ? 1 : 0.5 }}>
+                    <label className="form-label">Diabetes Pedigree</label>
+                    <input 
+                      type="number" 
+                      step="0.001"
+                      value={diabetesPedigree}
+                      onChange={(e) => setDiabetesPedigree(e.target.value)}
+                      className="form-input"
+                      disabled={diseaseType !== 'diabetes'}
                     />
                   </div>
 
@@ -311,29 +377,69 @@ export default function PredictionPage() {
                   <div style={{ textAlign: 'center' }}>
                     <span className="badge badge-info" style={{ fontWeight: 650 }}>{result.prediction.model_used}</span>
                     
-                    {/* Score Dial Mock */}
-                    <div style={{ margin: '1.5rem auto', position: 'relative', width: '130px', height: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="130" height="130" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
-                        <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="3.5" />
-                        <circle 
-                          cx="18" 
-                          cy="18" 
-                          r="15.915" 
-                          fill="none" 
-                          stroke={result.prediction.risk_score >= 50 ? 'var(--color-danger)' : 'var(--color-success)'} 
-                          strokeWidth="3.5" 
-                          strokeDasharray={`${result.prediction.risk_score} ${100 - result.prediction.risk_score}`}
-                          style={{ transition: 'stroke-dasharray 0.5s ease' }}
-                        />
-                      </svg>
-                      <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-secondary)' }}>{result.prediction.risk_score}%</span>
-                        <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', fontWeight: 650, textTransform: 'uppercase' }}>Probability</span>
+                    {/* Double Score Gauges Side-by-Side */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', margin: '1.5rem auto' }}>
+                      {/* Risk Gauge */}
+                      <div style={{ position: 'relative', width: '110px', height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="110" height="110" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+                          <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="3.2" />
+                          <circle 
+                            cx="18" 
+                            cy="18" 
+                            r="15.915" 
+                            fill="none" 
+                            stroke={
+                              result.prediction.risk_score >= 71 
+                                ? 'var(--color-danger)' 
+                                : result.prediction.risk_score >= 41 
+                                  ? 'var(--color-warning)' 
+                                  : 'var(--color-success)'
+                            } 
+                            strokeWidth="3.2" 
+                            strokeDasharray={`${result.prediction.risk_score} ${100 - result.prediction.risk_score}`}
+                            style={{ transition: 'stroke-dasharray 0.5s ease' }}
+                          />
+                        </svg>
+                        <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-secondary)' }}>{result.prediction.risk_score}%</span>
+                          <span style={{ fontSize: '0.55rem', color: 'var(--color-text-muted)', fontWeight: 650, textTransform: 'uppercase' }}>Risk Score</span>
+                        </div>
+                      </div>
+
+                      {/* Confidence Gauge */}
+                      <div style={{ position: 'relative', width: '110px', height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="110" height="110" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+                          <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="3.2" />
+                          <circle 
+                            cx="18" 
+                            cy="18" 
+                            r="15.915" 
+                            fill="none" 
+                            stroke="var(--color-primary)" 
+                            strokeWidth="3.2" 
+                            strokeDasharray={`${result.prediction.confidence_score || 80} ${100 - (result.prediction.confidence_score || 80)}`}
+                            style={{ transition: 'stroke-dasharray 0.5s ease' }}
+                          />
+                        </svg>
+                        <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-secondary)' }}>{result.prediction.confidence_score || 80}%</span>
+                          <span style={{ fontSize: '0.55rem', color: 'var(--color-text-muted)', fontWeight: 650, textTransform: 'uppercase' }}>Confidence</span>
+                        </div>
                       </div>
                     </div>
 
                     <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
-                      Classification: <span style={{ color: result.prediction.risk_score >= 50 ? 'var(--color-danger)' : 'var(--color-success)' }}>
+                      Classification:{' '}
+                      <span 
+                        className={`badge ${
+                          result.prediction.risk_score >= 71 
+                            ? 'badge-danger' 
+                            : result.prediction.risk_score >= 41 
+                              ? 'badge-warning' 
+                              : 'badge-success'
+                        }`}
+                        style={{ fontSize: '0.9rem', padding: '0.3rem 0.8rem', marginLeft: '0.5rem' }}
+                      >
                         {result.prediction.result}
                       </span>
                     </h3>
@@ -341,15 +447,45 @@ export default function PredictionPage() {
 
                   {/* Guidelines Output */}
                   <div style={{ 
-                    backgroundColor: result.prediction.risk_score >= 50 ? 'var(--color-danger-light)' : 'var(--color-success-light)', 
-                    border: `1.5px solid ${result.prediction.risk_score >= 50 ? 'var(--color-danger-border)' : 'var(--color-success-border)'}`,
+                    backgroundColor: 
+                      result.prediction.risk_score >= 71 
+                        ? 'var(--color-danger-light)' 
+                        : result.prediction.risk_score >= 41 
+                          ? 'var(--color-warning-light)' 
+                          : 'var(--color-success-light)', 
+                    border: `1.5px solid ${
+                      result.prediction.risk_score >= 71 
+                        ? 'var(--color-danger-border)' 
+                        : result.prediction.risk_score >= 41 
+                          ? 'var(--color-warning-border)' 
+                          : 'var(--color-success-border)'
+                    }`,
                     padding: '1.25rem',
                     borderRadius: '8px',
                     fontSize: '0.8rem',
                     lineHeight: 1.45
                   }}>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.5rem', fontSize: '0.85rem', color: result.prediction.risk_score >= 50 ? 'var(--color-danger)' : 'var(--color-success)' }}>
-                      {result.prediction.risk_score >= 50 ? <ShieldAlert size={16} /> : <CheckCircle size={16} />} Clinical Care Path Recommendation:
+                    <strong style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.25rem', 
+                      marginBottom: '0.5rem', 
+                      fontSize: '0.85rem', 
+                      color: 
+                        result.prediction.risk_score >= 71 
+                          ? 'var(--color-danger)' 
+                          : result.prediction.risk_score >= 41 
+                            ? 'var(--color-warning)' 
+                            : 'var(--color-success)' 
+                    }}>
+                      {result.prediction.risk_score >= 71 ? (
+                        <ShieldAlert size={16} />
+                      ) : result.prediction.risk_score >= 41 ? (
+                        <AlertTriangle size={16} />
+                      ) : (
+                        <CheckCircle size={16} />
+                      )}{' '}
+                      Clinical Care Path Recommendation:
                     </strong>
                     {result.details}
                   </div>
@@ -382,6 +518,7 @@ export default function PredictionPage() {
                     <th>Clinical Inputs</th>
                     <th>Classification</th>
                     <th>Risk Score</th>
+                    <th>Confidence</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -391,17 +528,28 @@ export default function PredictionPage() {
                       <td>{new Date(h.timestamp).toLocaleString()}</td>
                       <td style={{ fontWeight: 600, color: 'var(--color-secondary)' }}>{h.patient_name}</td>
                       <td>{h.model_used}</td>
-                      <td style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                        Glucose: {h.inputs?.glucose} | BP: {h.inputs?.blood_pressure} | BMI: {h.inputs?.bmi}
+                      <td style={{ fontSize: '0.73rem', color: 'var(--color-text-secondary)', lineHeight: 1.3 }}>
+                        {h.inputs?.pregnancies !== undefined && `Preg: ${h.inputs.pregnancies} | `}
+                        Glucose: {h.inputs?.glucose} | BP: {h.inputs?.blood_pressure} | 
+                        {h.inputs?.skin_thickness !== undefined && ` Skin: ${h.inputs.skin_thickness} | `}
+                        BMI: {h.inputs?.bmi}
+                        {h.inputs?.age !== undefined && ` | Age: ${h.inputs.age}`}
                       </td>
                       <td>
                         <span className={`badge ${
-                          h.risk_score >= 50 ? 'badge-danger' : 'badge-success'
+                          h.risk_score >= 71 
+                            ? 'badge-danger' 
+                            : h.risk_score >= 41 
+                              ? 'badge-warning' 
+                              : 'badge-success'
                         }`}>
                           {h.result}
                         </span>
                       </td>
                       <td style={{ fontWeight: 700 }}>{h.risk_score}%</td>
+                      <td style={{ fontWeight: 650, color: 'var(--color-primary)' }}>
+                        {h.confidence_score !== undefined ? `${h.confidence_score}%` : 'N/A'}
+                      </td>
                     </tr>
                   ))}
                   {history.length === 0 && (

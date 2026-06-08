@@ -5,7 +5,6 @@ import {
   getDoctors, getDiseases 
 } from '@/utils/db';
 
-// Simple sleep helper to simulate pipeline delay
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function GET() {
@@ -30,7 +29,7 @@ export async function POST(request: Request) {
     const diseases = await getDiseases();
 
     if (doctors.length === 0 || diseases.length === 0) {
-      return NextResponse.json({ error: 'Database dimensions not initialized. Seed schema first.' }, { status: 500 });
+      return NextResponse.json({ error: 'Database dimensions not initialized.' }, { status: 500 });
     }
 
     // 1. Extract: Parse CSV Lines
@@ -42,21 +41,25 @@ export async function POST(request: Request) {
     const headers = lines[0].split(',').map((h: string) => h.trim().toLowerCase());
     const totalExtracted = lines.length - 1;
 
-    // Parse rows into objects
     let rawRows: any[] = [];
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map((v: string) => v.trim());
-      // Skip incomplete comma splits
       if (values.length < headers.length) continue;
       
       const rowObj: any = {};
       headers.forEach((header: string, idx: number) => {
-        rowObj[header] = values[idx];
+        // Map common synonyms to standard keys
+        let standardHeader = header;
+        if (header === 'diabetespedigreefunction') standardHeader = 'diabetespedigreefunction';
+        if (header === 'skinthickness') standardHeader = 'skinthickness';
+        if (header === 'bloodpressure') standardHeader = 'bloodpressure';
+        
+        rowObj[standardHeader] = values[idx];
       });
       rawRows.push(rowObj);
     }
 
-    // 2. Transform: Cleaning pipelines
+    // 2. Transform: Data Cleansing
 
     // A. Remove Duplicates
     const seenRows = new Set<string>();
@@ -73,51 +76,60 @@ export async function POST(request: Request) {
       }
     });
 
-    // B. Calculate Medians for Imputation of missing/zero values where 0 is invalid
-    // For Diabetes: Glucose, BloodPressure, BMI, Insulin cannot be 0.
-    // For Heart: trestbps, chol, thalach cannot be 0.
+    // B. Calculate Medians for Imputations
     const medians: any = {};
     const numericKeys = datasetType === 'diabetes' 
-      ? ['glucose', 'bloodpressure', 'insulin', 'bmi', 'age']
+      ? ['pregnancies', 'glucose', 'bloodpressure', 'skinthickness', 'insulin', 'bmi', 'diabetespedigreefunction', 'age']
       : ['age', 'trestbps', 'chol', 'thalach'];
 
     numericKeys.forEach(key => {
       const values = uniqueRows
         .map(r => Number(r[key]))
-        .filter(val => !isNaN(val) && val > 0)
+        .filter(val => {
+          if (isNaN(val)) return false;
+          // For pregnancies, 0 is a valid value, don't filter it out
+          if (key === 'pregnancies') return val >= 0;
+          return val > 0;
+        })
         .sort((a, b) => a - b);
       
       if (values.length > 0) {
         const mid = Math.floor(values.length / 2);
         medians[key] = values.length % 2 !== 0 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
       } else {
-        medians[key] = key === 'glucose' ? 100 : key === 'bloodpressure' || key === 'trestbps' ? 120 : key === 'bmi' ? 24 : 0;
+        // Fallbacks
+        if (key === 'glucose') medians[key] = 100;
+        else if (key === 'bloodpressure' || key === 'trestbps') medians[key] = 120;
+        else if (key === 'bmi') medians[key] = 24.5;
+        else if (key === 'skinthickness') medians[key] = 20.0;
+        else if (key === 'diabetespedigreefunction') medians[key] = 0.372;
+        else medians[key] = 0;
       }
     });
 
-    // C. Data Cleansing & Validation & Outlier Detection
+    // C. Cleansing & Outliers detection
     const validatedRows: any[] = [];
     const anomaliesFlagged: string[] = [];
     let missingValuesImputed = 0;
 
     uniqueRows.forEach((row, idx) => {
-      const rowIndex = idx + 2; // CSV Line number
+      const rowIndex = idx + 2;
       let hasValidationError = false;
 
-      // Type-check and validate critical values
       const age = Number(row.age);
       if (isNaN(age) || age <= 0 || age > 115) {
-        anomaliesFlagged.push(`Row ${rowIndex}: Invalid Age (${row.age}) - Dropped record.`);
+        anomaliesFlagged.push(`Row ${rowIndex}: Invalid Age (${row.age}) - Dropped.`);
         hasValidationError = true;
       }
 
-      if (hasValidationError) return; // Drop row
+      if (hasValidationError) return;
 
-      // Impute missing values (null or 0) using calculated medians
       const cleanedRow = { ...row };
       numericKeys.forEach(key => {
         const val = Number(cleanedRow[key]);
-        if (isNaN(val) || val <= 0) {
+        const isInvalid = isNaN(val) || (key !== 'pregnancies' && val <= 0);
+        
+        if (isInvalid) {
           cleanedRow[key] = medians[key];
           missingValuesImputed++;
         } else {
@@ -125,16 +137,22 @@ export async function POST(request: Request) {
         }
       });
 
-      // Outlier Detection (clinical flags)
+      // Outliers check
       if (datasetType === 'diabetes') {
         if (cleanedRow.glucose > 250) {
-          anomaliesFlagged.push(`Row ${rowIndex}: Extreme Glucose Outlier (${cleanedRow.glucose} mg/dL).`);
+          anomaliesFlagged.push(`Row ${rowIndex}: High Glucose Outlier (${cleanedRow.glucose} mg/dL).`);
         }
         if (cleanedRow.bloodpressure > 140) {
-          anomaliesFlagged.push(`Row ${rowIndex}: Severe BP Outlier (${cleanedRow.bloodpressure} mmHg).`);
+          anomaliesFlagged.push(`Row ${rowIndex}: High BP Outlier (${cleanedRow.bloodpressure} mmHg).`);
         }
         if (cleanedRow.bmi > 48) {
-          anomaliesFlagged.push(`Row ${rowIndex}: BMI Outlier (${cleanedRow.bmi} kg/m²).`);
+          anomaliesFlagged.push(`Row ${rowIndex}: High BMI Outlier (${cleanedRow.bmi} kg/m²).`);
+        }
+        if (cleanedRow.skinthickness > 60) {
+          anomaliesFlagged.push(`Row ${rowIndex}: High Skin Thickness Outlier (${cleanedRow.skinthickness} mm).`);
+        }
+        if (cleanedRow.diabetespedigreefunction > 1.8) {
+          anomaliesFlagged.push(`Row ${rowIndex}: High Pedigree Outlier (${cleanedRow.diabetespedigreefunction}).`);
         }
       } else {
         if (cleanedRow.trestbps > 165) {
@@ -151,14 +169,13 @@ export async function POST(request: Request) {
       validatedRows.push(cleanedRow);
     });
 
-    // 3. Load: Commit Transformed Rows to Database DWH
+    // 3. Load: Commit to DWH
     const today = new Date();
     const day = today.getDate();
     const month = today.getMonth() + 1;
     const year = today.getFullYear();
     const time_id = `T${year}${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}`;
     
-    // Register time dimension
     await saveTime({ time_id, day, month, year });
 
     const totalLoaded = validatedRows.length;
@@ -168,7 +185,6 @@ export async function POST(request: Request) {
       const row = validatedRows[i];
       const pId = `P_${fileIdPrefix}_${Math.floor(100 + Math.random() * 900)}${i}`;
       
-      // Save patient dimension
       const patient = {
         patient_id: pId,
         patient_name: `${datasetType === 'diabetes' ? 'Diabetes' : 'Cardiovascular'} Cohort Patient #${i + 1}`,
@@ -179,51 +195,53 @@ export async function POST(request: Request) {
       };
       await savePatient(patient);
 
-      // Perform Star Schema Map to Visits Fact Table
       let glucose = 90;
       let bpVal = 120;
       let insulin = 0;
       let bmiVal = 24.0;
+      let pregnancies = 0;
+      let skinThickness = 0;
+      let pedigree = 0.15;
+      
       let diseaseId = 'DIS005';
       let doctorId = 'D003';
       let riskScore = 15;
       let predictionResult = 'Low Risk / Normal';
 
       if (datasetType === 'diabetes') {
+        pregnancies = row.pregnancies;
         glucose = row.glucose;
         bpVal = row.bloodpressure;
-        insulin = row.insulin || 0;
+        skinThickness = row.skinthickness;
+        insulin = row.insulin;
         bmiVal = row.bmi;
-        diseaseId = 'DIS001'; // Diabetes
-        doctorId = 'D001'; // Dr. Allison Vance (Endocrinology)
+        pedigree = row.diabetespedigreefunction;
+        diseaseId = 'DIS001';
+        doctorId = 'D001';
 
-        // Predict Risk (Rule-Based heuristic)
-        let score = 10;
-        if (glucose >= 126) score += 45;
-        else if (glucose >= 100) score += 20;
+        // Heuristics prediction
+        let score = 5;
+        if (glucose >= 126) score += 35;
+        else if (glucose >= 100) score += 15;
         if (bmiVal >= 30) score += 20;
         if (bpVal >= 140) score += 15;
-        if (row.age > 45) score += 10;
+        if (pregnancies > 4) score += 10;
+        if (pedigree > 0.6) score += 10;
+        if (row.age > 45) score += 5;
         
-        riskScore = Math.min(score, 98.5);
-        predictionResult = riskScore >= 75 ? 'Critical Diabetic Risk' : 
-                           riskScore >= 40 ? 'Moderate Prediabetic Risk' : 'Healthy / Normal';
+        riskScore = Math.min(score, 98.8);
+        predictionResult = riskScore >= 70 ? 'High Diabetes Risk' : 
+                           riskScore >= 41 ? 'Moderate Diabetes Risk' : 'Low Diabetes Risk / Normal';
       } else {
-        // Heart Disease
-        // fbs (fasting blood sugar > 120 mg/dl is binary 1/0)
         const fbsBinary = Number(row.fbs || 0);
         glucose = fbsBinary === 1 ? 140 : 95;
         bpVal = row.trestbps;
-        insulin = 0;
-        // Generate approximate BMI since heart disease dataset doesn't track it
-        bmiVal = Math.round((22 + (row.age / 10) + (Math.random() * 4)) * 10) / 10;
-        diseaseId = 'DIS003'; // Cardiac
-        doctorId = 'D002'; // Dr. Marcus Brody (Cardiology)
+        diseaseId = 'DIS003';
+        doctorId = 'D002';
 
-        // Predict Risk (Heart Heuristic)
         let score = 15;
-        const cp = Number(row.cp || 0); // chest pain type 0-3
-        const exang = Number(row.exang || 0); // exercise angina 1/0
+        const cp = Number(row.cp || 0);
+        const exang = Number(row.exang || 0);
         const chol = Number(row.chol || 0);
 
         if (cp > 0) score += 30;
@@ -233,8 +251,8 @@ export async function POST(request: Request) {
         if (row.age > 55) score += 10;
 
         riskScore = Math.min(score, 99.2);
-        predictionResult = riskScore >= 75 ? 'Critical Cardiac Risk' : 
-                           riskScore >= 40 ? 'Moderate Cardiac Risk' : 'Healthy / Normal';
+        predictionResult = riskScore >= 70 ? 'High Cardiac Risk' : 
+                           riskScore >= 41 ? 'Moderate Cardiac Risk' : 'Low Risk / Normal';
       }
 
       const visitObj = {
@@ -243,17 +261,19 @@ export async function POST(request: Request) {
         doctor_id: doctorId,
         disease_id: diseaseId,
         time_id,
+        pregnancies,
         glucose,
         blood_pressure: bpVal,
+        skin_thickness: skinThickness,
         insulin,
         bmi: bmiVal,
+        diabetes_pedigree: pedigree,
         prediction_result: predictionResult,
         risk_score: Math.round(riskScore * 10) / 10
       };
       await saveVisit(visitObj);
     }
 
-    // Save ETL log
     const logId = `L_ETL_${Math.floor(100 + Math.random() * 900)}`;
     const etlLog = {
       log_id: logId,
@@ -264,7 +284,7 @@ export async function POST(request: Request) {
       records_transformed: validatedRows.length,
       records_loaded: totalLoaded,
       duration_ms: 1000 + Math.floor(Math.random() * 500),
-      details: `Parsed ${fileName}. Filtered out ${duplicatesRemoved} duplicates and imputed ${missingValuesImputed} missing variables. Flagged ${anomaliesFlagged.length} anomalies. Committed ${totalLoaded} patients and fact lines to DWH.`
+      details: `Parsed ${fileName}. Removed ${duplicatesRemoved} duplicates, imputed ${missingValuesImputed} columns. Flagged ${anomaliesFlagged.length} outliers. Committed ${totalLoaded} rows to DWH.`
     };
     await saveEtlLog(etlLog);
 
@@ -279,7 +299,7 @@ export async function POST(request: Request) {
         imputed: missingValuesImputed,
         anomalies: anomaliesFlagged.length
       },
-      anomalies: anomaliesFlagged.slice(0, 10) // Return top 10 anomalies for UI output
+      anomalies: anomaliesFlagged.slice(0, 10)
     });
 
   } catch (error: any) {
